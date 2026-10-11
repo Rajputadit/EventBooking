@@ -1,0 +1,72 @@
+
+const nodemailer = require('nodemailer');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+exports.sendOtpEmail = async (email, otp, type) => {
+    try {
+
+        const titlw=type==='account_verification' ? 'verify your EvevntBooking Account' : 'event cancel';
+        const msg=type==='account_verification' ? 'Please use the following otp to verify your new account.' : 'Please ude the follwing to verify and your event booking';
+
+
+
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Your OTP Verification Code',
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 25px; background-color: #f4f7fb; border-radius: 12px;">
+                    <div style="background-color: #ffffff; padding: 30px; border-radius: 10px; text-align: center;">
+
+                        <h2 style="color: #2563eb;">Email Verification</h2>
+
+                        <p style="color: #555; font-size: 15px;">
+                            Use the verification code below to verify your email address.
+                        </p>
+
+                        <div style="background-color: #eff6ff; padding: 18px; margin: 25px 0; border-radius: 8px;">
+                            <h1 style="color: #2563eb; letter-spacing: 8px; margin: 0; font-size: 32px;">
+                                ${otp}
+                            </h1>
+                        </div>
+
+                        <p style="color: #666; font-size: 14px;">
+                            This OTP is valid for 5 minutes.
+                        </p>
+
+                        <p style="color: #888; font-size: 13px;">
+                            If you didn't request this code, please ignore this email.
+                        </p>
+
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 25px 0;">
+
+                        <p style="color: #999; font-size: 12px;">
+                            &copy; ${new Date().getFullYear()} Your App Name
+                        </p>
+
+                    </div>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        console.log(`OTP email sent to ${email} for ${type}`);
+        return true;
+
+    } catch (error) {
+        console.error(`Error sending OTP email for ${type}:`, error.message);
+        throw error;
+    }
+};
