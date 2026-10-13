@@ -70,3 +70,27 @@ exports.sendOtpEmail = async (email, otp, type) => {
         throw error;
     }
 };
+
+
+
+const sendBookingEmail=async(userEmail, userName, eventTitle)=>{
+    try {
+        const mailOptions={
+            from:process.env.EMAIL_USER,
+            to:userEmail,
+            subject:`Booking Confirmed: ${eventTitle}`,
+            html:`
+            <h2> hi ${userName}!</h2>
+            <p>your booking for the event <strong>${eventTitle}</strong> is successfully confirm
+            <p>Thank you for choosig eventBooking`
+        };
+        await transporter.sendMail(mailOptions);
+        console.log('Email sent Successfully',userEmail);
+        
+        
+    } catch (error) {
+        console.error('Error sending email:', error);
+        
+        
+    }
+};

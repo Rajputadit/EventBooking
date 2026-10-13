@@ -4,6 +4,14 @@ const User = require("../models/User.js");
 const bcrypt = require("bcrypt");
 const { sendOtpEmail } = require("../utils/email.js");
 
+const genrateToken=(id,role)=>{
+    return jwt.sign({id,role}, process.env.jwt_SECRET, {expiresIn: '7d'});
+}
+
+
+
+
+//Register User
 exports.registerUser = async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -70,73 +78,63 @@ exports.registerUser = async (req, res) => {
 
 //Login user
 
-exports.loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+exports.loginUser= async (req,res)=>{
+    const {email,password}=req.body;
 
-        // Validate input
-        if (!email || !password) {
-            return res.status(400).json({
-                message: "Email and password are required"
-            });
-        }
+    let user =await User.findOne({email});
+    if(!user){
+        return res.status(400).json({error:'Invalid credentials'});
+    }
 
-        // Find user
-        const user = await User.findOne({ email });
+    const isMatch=await bcrypt.compare(password,user.password);
+    if(!isMatch){
+        return res.status(400).json({error: 'Invalid credential'});
+    }
 
-        if (!user) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
 
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(
-            password,
-            user.password
-        );
+    if(!user.isVerified){
+        const otp= Math.floor(100000 + Math.random() * 900000).toString();
+        await OTP.deleteMany({email, action:'account_verification'})
 
-        if (!isPasswordValid) {
-            return res.status(401).json({
-                message: "Invalid email or password"
-            });
-        }
-
-        // Check account verification if your schema supports it
-        if (user.isVerified === false) {
-            return res.status(403).json({
-                message: "Please verify your email before logging in"
-            });
-        }
-
-        // Generate JWT
-        const token = jwt.sign(
-            {
-                id: user._id,
-                role: user.role
-            },
-            process.env.JWT_SECRET,
-            {
-                expiresIn: "1d"
-            }
-        );
-
-        return res.status(200).json({
-            message: "Login successful",
-            token,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            }
-        });
-
-    } catch (error) {
-        console.error("Login error:", error.message);
-
-        return res.status(500).json({
-            message: "Internal server error"
+        await OTP.create({email,otp,action: 'account_verification'});
+        await sendOtpEmail(email,otp, 'account_verfication');
+        return res.status(400).json({
+            error: 'Account not verified. A new OTP has been sent to your email.'
         });
     }
+
+
+    res.json({
+        message:'Login successful',
+        _id: user._id,
+        name:user.name,
+        email:user.email,
+        role:user.role,
+        token:genrateToken(user.id,user.role)
+    })
+};
+
+
+
+//verify OTP
+
+exports.verifyOtp=async (req,res)=>{
+    const {email,otp}= req.body;
+    const otpRecord= await OTP.findOne({email,otp,action: 'account_verification'});
+
+    if(!otpRecord){
+        return res.status(400).json({error: 'Invalid or expired OTP'})
+    }
+
+
+    const user= await User.findOneAndUpdate({email},{isVerified:true});
+    await OTP.deleteMany({email,action:'account_verification'});
+    res.json({
+        message:'Account verified successfully. You can now log In',
+        _id:user._id,
+        name:user.name,
+        email:user.email,
+        role:user.role,
+        token:genrateToken(user._id,user.role)
+    });
 };
